@@ -3,6 +3,7 @@ dist/
 dist-ui/
 .vexproof-cache/
 .vexproof-out/
+assets/*.mp4
 *.log
 .DS_Store
 
