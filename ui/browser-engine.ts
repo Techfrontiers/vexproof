@@ -354,12 +354,12 @@ function analyzeVirtualFilesReachability(files: Record<string, string>): Analyze
         fnStartDepth = braceDepth;
       }
 
-      // Track braces to reset function scope cleanly
+      // Track braces to reset function scope cleanly (never exit on the declaration line itself)
       for (const ch of trimmed) {
         if (ch === '{') braceDepth++;
         else if (ch === '}') {
           braceDepth = Math.max(0, braceDepth - 1);
-          if (braceDepth <= fnStartDepth && currentFnId !== modId) {
+          if (!fnMatch && braceDepth <= fnStartDepth && currentFnId !== modId) {
             currentFnId = modId;
           }
         }
