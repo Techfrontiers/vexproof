@@ -15,6 +15,12 @@ import {
   Terminal,
 } from 'lucide-react';
 import type { ReachabilityFinding, ScanReport } from '../src/core/types';
+import {
+  BUILTIN_SAMPLE_REPOS,
+  extractVirtualSnippet,
+  runVirtualRepoScan,
+  verifyVexBundleInBrowser,
+} from './browser-engine';
 
 interface SampleItem {
   id: string;
@@ -63,6 +69,15 @@ export function App() {
 
   const [vexEditorText, setVexEditorText] = useState<string>('');
   const [verifyVerdict, setVerifyVerdict] = useState<VerifyResponse | null>(null);
+  const [runtimeMode, setRuntimeMode] = useState<'local-api' | 'browser-engine'>('local-api');
+  const [virtualFiles, setVirtualFiles] = useState<Record<string, string> | null>(null);
+  const [sandboxOpen, setSandboxOpen] = useState<boolean>(false);
+  const [sandboxLock, setSandboxLock] = useState<string>(
+    BUILTIN_SAMPLE_REPOS['examples/acme-eu-gateway'].files['package-lock.json']
+  );
+  const [sandboxCode, setSandboxCode] = useState<string>(
+    BUILTIN_SAMPLE_REPOS['examples/acme-eu-gateway'].files['src/renderer.ts']
+  );
 
   async function runScan(pathOrUrl: string, forceOffline = offlineOnly) {
     setLoading(true);
@@ -73,14 +88,82 @@ export function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetPathOrUrl: pathOrUrl, offlineOnly: forceOffline }),
       });
+      const contentType = res.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('FALLBACK_TO_BROWSER');
+      }
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || `HTTP ${res.status}`);
       }
       const typed = data as ScanReport;
       setReport(typed);
+      setRuntimeMode('local-api');
+      setVirtualFiles(null);
       setSelectedIdx(0);
       setVexEditorText(JSON.stringify(typed.signedVex, null, 2));
+      setVerifyVerdict(null);
+    } catch (err) {
+      if (BUILTIN_SAMPLE_REPOS[pathOrUrl] || (err instanceof Error && err.message === 'FALLBACK_TO_BROWSER')) {
+        try {
+          const { report: browserReport, files } = await runVirtualRepoScan(
+            pathOrUrl,
+            undefined,
+            forceOffline
+          );
+          setReport(browserReport);
+          setRuntimeMode('browser-engine');
+          setVirtualFiles(files);
+          setSelectedIdx(0);
+          setVexEditorText(JSON.stringify(browserReport.signedVex, null, 2));
+          setVerifyVerdict(null);
+          return;
+        } catch (browserErr) {
+          setError(browserErr instanceof Error ? browserErr.message : String(browserErr));
+          return;
+        }
+      }
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runCustomSandboxScan() {
+    setLoading(true);
+    setError(null);
+    try {
+      const parsedLock = JSON.parse(sandboxLock) as { packages?: Record<string, { version?: string }> };
+      const deps: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsedLock.packages ?? {})) {
+        const idx = k.lastIndexOf('node_modules/');
+        if (idx !== -1 && v.version) deps[k.slice(idx + 'node_modules/'.length)] = v.version;
+      }
+      const customFiles: Record<string, string> = {
+        'package.json': JSON.stringify(
+          {
+            name: 'custom-browser-sandbox',
+            version: '1.0.0',
+            main: 'src/index.ts',
+            dependencies: deps,
+          },
+          null,
+          2
+        ),
+        'package-lock.json': sandboxLock,
+        'src/index.ts': sandboxCode,
+      };
+      const { report: browserReport, files } = await runVirtualRepoScan(
+        'custom-browser-sandbox',
+        customFiles,
+        offlineOnly
+      );
+      setTargetInput('custom-browser-sandbox');
+      setReport(browserReport);
+      setRuntimeMode('browser-engine');
+      setVirtualFiles(files);
+      setSelectedIdx(0);
+      setVexEditorText(JSON.stringify(browserReport.signedVex, null, 2));
       setVerifyVerdict(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -90,13 +173,25 @@ export function App() {
   }
 
   useEffect(() => {
+    const defaultSamples: SampleItem[] = Object.entries(BUILTIN_SAMPLE_REPOS).map(([rel, r]) => ({
+      id: r.id,
+      name: r.name,
+      path: rel,
+      description: r.description,
+    }));
     fetch('/api/samples')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok || !(r.headers.get('content-type') ?? '').includes('application/json')) {
+          throw new Error('No API');
+        }
+        return r.json();
+      })
       .then((d: { samples?: SampleItem[] }) => {
-        if (d.samples) setSamples(d.samples);
+        if (d.samples?.length) setSamples(d.samples);
+        else setSamples(defaultSamples);
       })
       .catch(() => {
-        // Ignore sample list failure
+        setSamples(defaultSamples);
       });
     void runScan('examples/acme-eu-gateway', false);
   }, []);
@@ -119,6 +214,10 @@ export function App() {
       setSnippet(null);
       return;
     }
+    if (virtualFiles) {
+      setSnippet(extractVirtualSnippet(virtualFiles, site.file, site.line));
+      return;
+    }
     const params = new URLSearchParams({
       repoPath: report.targetPath,
       file: site.file,
@@ -128,17 +227,25 @@ export function App() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setSnippet(data))
       .catch(() => setSnippet(null));
-  }, [report, activeFinding]);
+  }, [report, activeFinding, virtualFiles]);
 
   async function verifyEditedVex() {
     setVerifyVerdict(null);
     try {
       const parsed = JSON.parse(vexEditorText);
+      if (runtimeMode === 'browser-engine') {
+        setVerifyVerdict(await verifyVexBundleInBrowser(parsed));
+        return;
+      }
       const res = await fetch('/api/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bundle: parsed }),
       });
+      if (!(res.headers.get('content-type') ?? '').includes('application/json')) {
+        setVerifyVerdict(await verifyVexBundleInBrowser(parsed));
+        return;
+      }
       const verdict = (await res.json()) as VerifyResponse;
       setVerifyVerdict(verdict);
     } catch (err) {
@@ -182,7 +289,9 @@ export function App() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <span className="pill-tag live">
             <Activity size={13} />
-            {report ? `Intel: ${report.metrics.intelMode.toUpperCase()}` : 'Ready'}
+            {report
+              ? `Intel: ${report.metrics.intelMode.toUpperCase()} (${runtimeMode === 'local-api' ? 'Node Engine' : 'Browser Engine'})`
+              : 'Ready'}
           </span>
           <span className="pill-tag">Kiroween 2026 • Frankenstein</span>
         </div>
@@ -232,7 +341,46 @@ export function App() {
               </button>
             );
           })}
+          <button
+            className={`chip ${sandboxOpen ? 'active' : ''}`}
+            onClick={() => setSandboxOpen((prev) => !prev)}
+          >
+            {sandboxOpen ? 'Hide Custom Sandbox' : '+ Custom Code & Lockfile Sandbox'}
+          </button>
         </div>
+
+        {sandboxOpen && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginTop: 6 }}>
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 4 }}>
+                Editable <code>src/index.ts</code> (Try changing <code>_.template</code> to <code>_.chunk</code> or adding <code>eval(...)</code>)
+              </div>
+              <textarea
+                className="textarea-vex"
+                style={{ minHeight: 160 }}
+                value={sandboxCode}
+                onChange={(e) => setSandboxCode(e.target.value)}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 4 }}>
+                Editable <code>package-lock.json</code>
+              </div>
+              <textarea
+                className="textarea-vex"
+                style={{ minHeight: 160 }}
+                value={sandboxLock}
+                onChange={(e) => setSandboxLock(e.target.value)}
+              />
+              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-primary" disabled={loading} onClick={() => runCustomSandboxScan()}>
+                  <Play size={14} />
+                  Compile Sandbox OpenVEX
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {error && <div className="error-banner">Scan Error: {error}</div>}

@@ -18,8 +18,8 @@ export const VULNERABLE_SYMBOL_RULES: Record<string, VulnerableSymbolRule[]> = {
       reason: 'Command/code injection via lodash.template variable/sourceURL interpolation',
     },
     {
-      symbols: ['merge', 'mergeWith', 'defaultsDeep', 'zipObjectDeep', 'set', 'setWith'],
-      summaryHints: ['prototype pollution'],
+      symbols: ['merge', 'mergeWith', 'defaultsDeep', 'zipObjectDeep', 'set', 'setWith', 'unset', 'omit', 'pullAt'],
+      summaryHints: ['prototype pollution', 'unset', 'omit', 'pullat'],
       reason: 'Prototype pollution in object merge/deep path mutation helpers',
     },
     {
