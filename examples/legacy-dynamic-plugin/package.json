@@ -1,0 +1,10 @@
+{
+  "name": "legacy-dynamic-plugin",
+  "version": "0.9.0",
+  "description": "Demonstrates VEXProof Soundness Guard: dynamic require() prevents false not_affected suppression",
+  "main": "src/index.ts",
+  "dependencies": {
+    "lodash": "4.17.20",
+    "minimatch": "3.0.4"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "kiroween-submission-guard",
+      "trigger": "PostFileSave",
+      "matcher": "^(\\.gitignore|package\\.json|README\\.md)$",
+      "action": {
+        "type": "command",
+        "command": "node scripts/check-kiro-compliance.mjs"
+      }
+    }
+  ]
+}

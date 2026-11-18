@@ -1,0 +1,11 @@
+{
+  "name": "fintech-batch-worker",
+  "version": "1.2.0",
+  "description": "Clean worker calling only non-vulnerable lodash.chunk with zero dynamic eval -> 100% VEX suppression proof",
+  "main": "src/index.ts",
+  "dependencies": {
+    "lodash": "4.17.20",
+    "minimatch": "3.0.4",
+    "serialize-javascript": "3.1.0"
+  }
+}

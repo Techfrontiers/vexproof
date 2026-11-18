@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "vexproof": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "tsx",
+        "src/mcp/server.ts"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "vexproof_scan_repo",
+        "vexproof_verify_vex",
+        "vexproof_patch_plan"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "read_file",
+        "list_directory"
+      ]
+    }
+  }
+}

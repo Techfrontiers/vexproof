@@ -1,0 +1,13 @@
+{
+  "name": "acme-eu-gateway",
+  "version": "2.4.1",
+  "description": "EU B2B Payment & Invoice Gateway with real mixed reachable/unreachable CVEs (OSV.dev live target)",
+  "main": "src/server.ts",
+  "dependencies": {
+    "ejs": "3.1.9",
+    "jsonwebtoken": "8.5.1",
+    "lodash": "4.17.20",
+    "minimatch": "3.0.4",
+    "serialize-javascript": "3.1.0"
+  }
+}

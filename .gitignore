@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-ui/
+.vexproof-cache/
+.vexproof-out/
+*.log
+.DS_Store
+
+# IMPORTANT FOR KIROWEEN 2026:
+# NEVER ignore .kiro/ — it is required for hackathon verification.

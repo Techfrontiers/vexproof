@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "vexproof-reachability-test-on-save",
+      "trigger": "PostFileSave",
+      "matcher": "^src/(core|cli|mcp)/.*\\.ts$",
+      "action": {
+        "type": "command",
+        "command": "npm test"
+      }
+    }
+  ]
+}

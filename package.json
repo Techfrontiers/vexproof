@@ -1,0 +1,56 @@
+{
+  "name": "vexproof",
+  "version": "1.0.0",
+  "description": "Reachability-Verified SBOM & Ed25519 Signed OpenVEX Compiler for EU CRA & DevSecOps (Kiroween 2026 - Frankenstein)",
+  "type": "module",
+  "main": "dist/core/scanner.js",
+  "bin": {
+    "vexproof": "dist/cli/index.js"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,ui -c cyan,magenta \"tsx watch src/server/index.ts\" \"vite --port 5174 --strictPort\"",
+    "dev:api": "tsx watch src/server/index.ts",
+    "dev:ui": "vite --port 5174 --strictPort",
+    "build:core": "tsc -p tsconfig.build.json",
+    "build:ui": "vite build",
+    "build": "npm run build:core && npm run build:ui",
+    "start": "node dist/server/index.js",
+    "cli": "tsx src/cli/index.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "test": "vitest run",
+    "check:kiro": "node scripts/check-kiro-compliance.mjs"
+  },
+  "keywords": [
+    "sbom",
+    "openvex",
+    "cyclonedx",
+    "reachability",
+    "ast",
+    "eu-cra",
+    "osv",
+    "epss",
+    "cisa-kev",
+    "kiroween"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8"
+  }
+}
